@@ -2,7 +2,104 @@
 
 import { useEffect, useState } from "react";
 import api from "@/app/lib/api";
-import { User, Mail, Phone, MapPin, Calendar } from "lucide-react";
+import { User, Mail, Phone, MapPin, Calendar, Eye, X } from "lucide-react";
+
+const UserDetailsModal = ({ user, onClose }) => {
+  if (!user) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+          <h2 className="text-xl font-bold text-gray-800">User Details</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X className="w-6 h-6 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Basic Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Full Name</label>
+              <p className="text-lg font-medium text-gray-900">{user.name}</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">User ID</label>
+              <p className="text-sm font-mono text-gray-600">{user._id}</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Email Address</label>
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-indigo-500" />
+                <p className="text-gray-900">{user.email}</p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Phone Number</label>
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-green-500" />
+                <p className="text-gray-900">{user.phone}</p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Role</label>
+              <p className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 uppercase">
+                {user.role}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Account Created</label>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-purple-500" />
+                <p className="text-gray-900">
+                  {new Date(user.createdAt).toLocaleString(undefined, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <hr />
+
+          {/* Addresses */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Saved Addresses</h3>
+            {user.addresses && user.addresses.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {user.addresses.map((addr) => (
+                  <div key={addr._id} className={`p-4 rounded-lg border ${addr.isDefault ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-gray-800">
+                        {addr.label || addr.houseNo || 'Address'}
+                        {addr.isDefault && <span className="ml-2 text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full uppercase">Default</span>}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {addr.houseNo}, {addr.street}, {addr.landmark && `${addr.landmark}, `}{addr.city}, {addr.state} - {addr.pincode}
+                    </p>
+                    {addr.latitude && addr.longitude && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Coords: {addr.latitude}, {addr.longitude}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">No addresses found for this user.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function UserDisplay() {
   const [users, setUsers] = useState([]);
@@ -10,6 +107,7 @@ export default function UserDisplay() {
 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,63 +187,84 @@ export default function UserDisplay() {
                 Contact
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase hidden lg:table-cell">
-                Address
+                Default Address
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">
                 Joined
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase text-center">
+                Actions
               </th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-gray-100">
-            {paginatedUsers.map((user) => (
-              <tr key={user._id} className="hover:bg-gray-50">
-                {/* User Name */}
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <User className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <p className="font-medium text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-500">{user._id}</p>
+            {paginatedUsers.map((user) => {
+              const defaultAddress = user.addresses?.find(a => a.isDefault) || user.addresses?.[0];
+              return (
+                <tr key={user._id} className="hover:bg-gray-50 transition-colors">
+                  {/* User Name */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <User className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{user.name}</p>
+                        <p className="text-xs text-gray-400 font-mono">{user._id}</p>
+                      </div>
                     </div>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Contact */}
-                <td className="px-6 py-4 hidden md:table-cell">
-                  <div className="flex flex-col gap-1">
+                  {/* Contact */}
+                  <td className="px-6 py-4 hidden md:table-cell">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="text-sm text-gray-600">{user.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="text-sm text-gray-600">{user.phone}</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Address */}
+                  <td className="px-6 py-4 hidden lg:table-cell max-w-xs">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                      <span className="text-sm text-gray-600 line-clamp-2">
+                        {defaultAddress 
+                          ? `${defaultAddress.houseNo}, ${defaultAddress.street}, ${defaultAddress.city}`
+                          : "No address saved"}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Created Date */}
+                  <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-indigo-500" />
-                      <span className="text-sm">{user.email}</span>
+                      <Calendar className="w-4 h-4 text-purple-400" />
+                      <span className="text-sm text-gray-600">
+                        {new Date(user.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-green-500" />
-                      <span className="text-sm">{user.phone}</span>
-                    </div>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Address */}
-                <td className="px-6 py-4 hidden lg:table-cell">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-red-500" />
-                    <span className="text-sm text-gray-700">
-                      {user.address || "N/A"}
-                    </span>
-                  </div>
-                </td>
-
-                {/* Created Date */}
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-purple-500" />
-                    <span className="text-sm text-gray-700">
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  {/* Actions */}
+                  <td className="px-6 py-4 text-center">
+                    <button 
+                      onClick={() => setSelectedUser(user)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                    >
+                      <Eye className="w-4 h-4" />
+                      View
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -177,6 +296,11 @@ export default function UserDisplay() {
           Next
         </button>
       </div>
+
+      <UserDetailsModal 
+        user={selectedUser} 
+        onClose={() => setSelectedUser(null)} 
+      />
     </div>
   );
 }
