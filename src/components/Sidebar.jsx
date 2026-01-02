@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,8 +35,11 @@ export default function Sidebar() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    setShowLogoutModal(false);
     router.push("/");
   };
+
+  if (pathname === "/") return null;
 
   const menuItems = [
     { path: "/pages/dashboard", icon: LayoutDashboard, label: "Dashboard" },

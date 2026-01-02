@@ -1,4 +1,5 @@
 import Sidebar from "@/components/Sidebar";
+import AuthGuard from "@/components/AuthGuard";
 import "./globals.css";
 
 export const metadata = {
@@ -10,12 +11,14 @@ export default function AdminLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <div className="flex min-h-full">
-          <Sidebar />
-          <main className="flex-1 bg-white min-h-screen">
-            {children}
-          </main>
-        </div>
+        <AuthGuard>
+          <div className="flex min-h-full">
+            <Sidebar />
+            <main className="flex-1 bg-white min-h-screen">
+              {children}
+            </main>
+          </div>
+        </AuthGuard>
       </body>
     </html>
   );
